@@ -167,7 +167,7 @@ function createCategoryFilter() {
   renderCategoryOptions();
 }
 
-function exportQuotes() {
+function exportToJsonFile() {
   const jsonData = JSON.stringify(quotes, null, 2);
   const blob = new Blob([jsonData], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -178,6 +178,10 @@ function exportQuotes() {
   downloadLink.click();
 
   URL.revokeObjectURL(url);
+}
+
+function exportQuotes() {
+  exportToJsonFile();
 }
 
 function importFromJsonFile(event) {
@@ -219,22 +223,33 @@ function importFromJsonFile(event) {
   event.target.value = "";
 }
 
-function createStorageControls() {
+function setupStorageControls() {
   const storageControls = document.getElementById("storageControls");
+  if (!storageControls) {
+    return;
+  }
 
-  const exportButton = document.createElement("button");
-  exportButton.type = "button";
-  exportButton.textContent = "Export Quotes (JSON)";
-  exportButton.addEventListener("click", exportQuotes);
+  let exportButton = document.getElementById("exportQuotes");
+  let importInput = document.getElementById("importFile");
 
-  const importInput = document.createElement("input");
-  importInput.type = "file";
-  importInput.id = "importFile";
-  importInput.accept = ".json";
+  if (!exportButton) {
+    exportButton = document.createElement("button");
+    exportButton.type = "button";
+    exportButton.id = "exportQuotes";
+    exportButton.textContent = "Export Quotes";
+    storageControls.appendChild(exportButton);
+  }
+
+  if (!importInput) {
+    importInput = document.createElement("input");
+    importInput.type = "file";
+    importInput.id = "importFile";
+    importInput.accept = ".json";
+    storageControls.appendChild(importInput);
+  }
+
+  exportButton.addEventListener("click", exportToJsonFile);
   importInput.addEventListener("change", importFromJsonFile);
-
-  storageControls.appendChild(exportButton);
-  storageControls.appendChild(importInput);
 }
 
 function restoreLastQuote() {
@@ -264,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadQuotes();
   createCategoryFilter();
   createAddQuoteForm();
-  createStorageControls();
+  setupStorageControls();
 
   elements.newQuoteButton.addEventListener("click", showRandomQuote);
 

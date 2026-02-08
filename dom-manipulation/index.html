@@ -8,7 +8,15 @@
   <body>
     <h1>Dynamic Quote Generator</h1>
     <div id="controls"></div>
-    <div id="storageControls"></div>
+    <div id="storageControls">
+      <button id="exportQuotes">Export Quotes</button>
+      <input
+        type="file"
+        id="importFile"
+        accept=".json"
+        onchange="importFromJsonFile(event)"
+      />
+    </div>
     <div id="quoteDisplay"></div>
     <button id="newQuote">Show New Quote</button>
     <div id="formContainer"></div>
