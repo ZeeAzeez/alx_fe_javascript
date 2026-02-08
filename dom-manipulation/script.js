@@ -21,6 +21,8 @@ const STORAGE_KEYS = {
   quotes: "dynamicQuotes",
   lastQuote: "lastViewedQuote",
   lastFilter: "lastSelectedCategory",
+  lastSync: "lastSyncTimestamp",
+  localBackup: "localQuotesBackup",
 };
 
 const elements = {
@@ -30,7 +32,16 @@ const elements = {
   formContainer: null,
   newQuoteText: null,
   newQuoteCategory: null,
+  syncStatus: null,
+  syncNowButton: null,
+  conflictActions: null,
+  keepLocalButton: null,
+  useServerButton: null,
 };
+
+const SERVER_API_URL = "https://jsonplaceholder.typicode.com/posts";
+const SYNC_INTERVAL_MS = 30000;
+let lastServerQuotes = [];
 
 function populateCategories() {
   if (!elements.categorySelect) {
@@ -57,6 +68,30 @@ function populateCategories() {
 
 function saveQuotes() {
   localStorage.setItem(STORAGE_KEYS.quotes, JSON.stringify(quotes));
+}
+
+function backupLocalQuotes() {
+  localStorage.setItem(STORAGE_KEYS.localBackup, JSON.stringify(quotes));
+}
+
+function restoreLocalBackup() {
+  const backup = localStorage.getItem(STORAGE_KEYS.localBackup);
+  if (!backup) {
+    return false;
+  }
+
+  try {
+    const parsed = JSON.parse(backup);
+    if (Array.isArray(parsed)) {
+      quotes = parsed;
+      saveQuotes();
+      return true;
+    }
+  } catch (error) {
+    return false;
+  }
+
+  return false;
 }
 
 function loadQuotes() {
@@ -171,6 +206,8 @@ function addQuote() {
   }
 
   filterQuotes();
+
+  postQuoteToServer({ text: textValue, category: categoryValue });
 }
 
 function createAddQuoteForm() {
@@ -300,6 +337,143 @@ function setupStorageControls() {
   importInput.addEventListener("change", importFromJsonFile);
 }
 
+function updateSyncStatus(message, isWarning = false) {
+  if (!elements.syncStatus) {
+    return;
+  }
+
+  elements.syncStatus.textContent = message;
+  elements.syncStatus.style.color = isWarning ? "#b45309" : "#0f766e";
+}
+
+function showConflictActions(show) {
+  if (!elements.conflictActions) {
+    return;
+  }
+
+  elements.conflictActions.hidden = !show;
+}
+
+function normalizeQuote(quote) {
+  return {
+    text: String(quote.text || "").trim(),
+    category: String(quote.category || "").trim(),
+  };
+}
+
+function quotesAreEqual(localData, serverData) {
+  if (localData.length !== serverData.length) {
+    return false;
+  }
+
+  const localString = JSON.stringify(localData);
+  const serverString = JSON.stringify(serverData);
+  return localString === serverString;
+}
+
+async function fetchServerQuotes() {
+  const response = await fetch(`${SERVER_API_URL}?_limit=5`);
+  const data = await response.json();
+
+  return data.map((item) =>
+    normalizeQuote({
+      text: item.title || item.body || "Server quote",
+      category: "Server",
+    }),
+  );
+}
+
+async function postQuoteToServer(quote) {
+  try {
+    await fetch(SERVER_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(quote),
+    });
+  } catch (error) {
+    updateSyncStatus("Offline: will sync when available.", true);
+  }
+}
+
+async function syncWithServer({ manual = false } = {}) {
+  try {
+    updateSyncStatus("Syncing with server...");
+    const serverQuotes = await fetchServerQuotes();
+    lastServerQuotes = serverQuotes;
+
+    const normalizedLocal = quotes.map(normalizeQuote);
+    const normalizedServer = serverQuotes.map(normalizeQuote);
+
+    if (!quotesAreEqual(normalizedLocal, normalizedServer)) {
+      backupLocalQuotes();
+      quotes = normalizedServer;
+      saveQuotes();
+      populateCategories();
+      filterQuotes();
+      localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+      updateSyncStatus("Server data applied. Conflicts resolved.", true);
+      showConflictActions(true);
+    } else {
+      updateSyncStatus(manual ? "Already up to date." : "Synced.");
+      showConflictActions(false);
+    }
+  } catch (error) {
+    updateSyncStatus("Sync failed. Check your connection.", true);
+  }
+}
+
+function keepLocalData() {
+  const restored = restoreLocalBackup();
+  if (!restored) {
+    updateSyncStatus("No local backup available.", true);
+    return;
+  }
+
+  populateCategories();
+  filterQuotes();
+  updateSyncStatus("Restored local data.");
+  showConflictActions(false);
+}
+
+function useServerData() {
+  if (lastServerQuotes.length) {
+    quotes = lastServerQuotes;
+    saveQuotes();
+    populateCategories();
+    filterQuotes();
+  }
+
+  updateSyncStatus("Server data kept.");
+  showConflictActions(false);
+}
+
+function setupSyncControls() {
+  elements.syncStatus = document.getElementById("syncStatus");
+  elements.syncNowButton = document.getElementById("syncNow");
+  elements.conflictActions = document.getElementById("conflictActions");
+  elements.keepLocalButton = document.getElementById("keepLocal");
+  elements.useServerButton = document.getElementById("useServer");
+
+  if (elements.syncNowButton) {
+    elements.syncNowButton.addEventListener("click", () =>
+      syncWithServer({ manual: true }),
+    );
+  }
+
+  if (elements.keepLocalButton) {
+    elements.keepLocalButton.addEventListener("click", keepLocalData);
+  }
+
+  if (elements.useServerButton) {
+    elements.useServerButton.addEventListener("click", useServerData);
+  }
+
+  const lastSync = localStorage.getItem(STORAGE_KEYS.lastSync);
+  if (lastSync) {
+    updateSyncStatus(`Last sync: ${new Date(lastSync).toLocaleString()}`);
+  }
+}
+
 function restoreLastQuote() {
   const lastQuoteRaw = sessionStorage.getItem(STORAGE_KEYS.lastQuote);
   if (!lastQuoteRaw) {
@@ -328,8 +502,12 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCategoryFilter();
   createAddQuoteForm();
   setupStorageControls();
+  setupSyncControls();
 
   elements.newQuoteButton.addEventListener("click", showRandomQuote);
 
   filterQuotes();
+
+  syncWithServer();
+  setInterval(syncWithServer, SYNC_INTERVAL_MS);
 });

@@ -21,9 +21,27 @@
         onchange="importFromJsonFile(event)"
       />
     </div>
+    <div id="syncControls">
+      <button id="syncNow">Sync Now</button>
+      <span id="syncStatus" aria-live="polite"></span>
+      <div id="conflictActions" hidden>
+        <button id="keepLocal">Keep Local Data</button>
+        <button id="useServer">Use Server Data</button>
+      </div>
+    </div>
     <div id="quoteDisplay"></div>
     <button id="newQuote">Show New Quote</button>
     <div id="formContainer"></div>
+    <p>
+      <a
+        id="tweetLink"
+        href="https://twitter.com/intent/tweet?text=I%20completed%20the%20Dynamic%20Quote%20Generator%20project!"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Click here to Tweet this
+      </a>
+    </p>
     <script src="script.js"></script>
   </body>
 </html>
