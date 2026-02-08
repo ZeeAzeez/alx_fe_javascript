@@ -371,7 +371,7 @@ function quotesAreEqual(localData, serverData) {
   return localString === serverString;
 }
 
-async function fetchServerQuotes() {
+async function fetchQuotesFromServer() {
   const response = await fetch(`${SERVER_API_URL}?_limit=5`);
   const data = await response.json();
 
@@ -395,10 +395,10 @@ async function postQuoteToServer(quote) {
   }
 }
 
-async function syncWithServer({ manual = false } = {}) {
+async function syncQuotes({ manual = false } = {}) {
   try {
     updateSyncStatus("Syncing with server...");
-    const serverQuotes = await fetchServerQuotes();
+    const serverQuotes = await fetchQuotesFromServer();
     lastServerQuotes = serverQuotes;
 
     const normalizedLocal = quotes.map(normalizeQuote);
@@ -456,7 +456,7 @@ function setupSyncControls() {
 
   if (elements.syncNowButton) {
     elements.syncNowButton.addEventListener("click", () =>
-      syncWithServer({ manual: true }),
+      syncQuotes({ manual: true }),
     );
   }
 
@@ -508,6 +508,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   filterQuotes();
 
-  syncWithServer();
-  setInterval(syncWithServer, SYNC_INTERVAL_MS);
+  syncQuotes();
+  setInterval(syncQuotes, SYNC_INTERVAL_MS);
 });
