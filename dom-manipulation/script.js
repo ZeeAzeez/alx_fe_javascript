@@ -414,7 +414,9 @@ async function syncQuotes({ manual = false } = {}) {
       updateSyncStatus("Server data applied. Conflicts resolved.", true);
       showConflictActions(true);
     } else {
-      updateSyncStatus(manual ? "Already up to date." : "Synced.");
+      updateSyncStatus(
+        manual ? "Already up to date." : "Quotes synced with server!",
+      );
       showConflictActions(false);
     }
   } catch (error) {
